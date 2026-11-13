@@ -1,0 +1,6 @@
+{
+  "name": "Universal File Explorer",
+  "description": "A modern, native Android file explorer and storage manager with Material 3 design.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

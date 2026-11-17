@@ -2,9 +2,7 @@ name: Build Universal File Explorer APK
 
 on:
   push:
-    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -14,6 +12,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Verify app/src/main exists in repository
+        run: |
+          if [ ! -d app/src/main ] || [ ! -f app/src/main/AndroidManifest.xml ]; then
+            echo "ERROR: app/src/main folder is missing in your GitHub repository!"
+            echo "Please push the complete project from AI Studio (Push to GitHub or Export as ZIP + git push)."
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -52,39 +58,30 @@ jobs:
 
       - name: Generate dummy google-services.json
         run: |
-          if [ ! -f app/google-services.json ]; then
-            cat << 'EOF' > app/google-services.json
-          {
-            "project_info": {
-              "project_number": "000000000000",
-              "project_id": "dummy-ci-project",
-              "storage_bucket": "dummy-ci-project.appspot.com"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
-                  "android_client_info": {
-                    "package_name": "com.universalfileexplorer.filemanager"
-                  }
-                },
-                "oauth_client": [],
-                "api_key": [
-                  {
-                    "current_key": "AIzaSyDummyKeyForCiBuildOnly000000000"
-                  }
-                ],
-                "services": {
-                  "appinvite_service": {
-                    "other_platform_oauth_client": []
-                  }
-                }
+          python3 -c '
+          import json, os
+          path = "app/google-services.json"
+          if not os.path.exists(path):
+              data = {
+                  "project_info": {
+                      "project_number": "000000000000",
+                      "project_id": "dummy-ci-project",
+                      "storage_bucket": "dummy-ci-project.appspot.com"
+                  },
+                  "client": [{
+                      "client_info": {
+                          "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                          "android_client_info": {"package_name": "com.universalfileexplorer.filemanager"}
+                      },
+                      "oauth_client": [],
+                      "api_key": [{"current_key": "AIzaSyDummyKeyForCiBuildOnly000000000"}],
+                      "services": {"appinvite_service": {"other_platform_oauth_client": []}}
+                  }],
+                  "configuration_version": "1"
               }
-            ],
-            "configuration_version": "1"
-          }
-          EOF
-          fi
+              with open(path, "w") as f:
+                  json.dump(data, f, indent=2)
+          '
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -102,6 +99,7 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8"
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4

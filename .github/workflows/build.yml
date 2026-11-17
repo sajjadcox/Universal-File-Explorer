@@ -21,22 +21,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
+      - name: Set up Android SDK (API 36.1)
         uses: android-actions/setup-android@v3
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.3.1'
+          packages: 'platform-tools platforms;android-36.1 build-tools;36.0.0'
 
-      - name: Generate missing Gradle wrapper files
+      - name: Accept Android SDK licenses
         run: |
-          if [ ! -f ./gradlew ]; then
-            gradle wrapper --gradle-version 9.3.1
+          SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -n "$SDK_DIR" ] && [ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]; then
+            yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
           fi
-          chmod +x ./gradlew
 
-      - name: Generate dummy debug.keystore
+      - name: Generate dummy debug.keystore and .env
         run: |
           if [ ! -f debug.keystore ]; then
             keytool -genkey -v \
@@ -48,6 +45,9 @@ jobs:
               -keysize 2048 \
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          if [ ! -f .env ]; then
+            touch .env
           fi
 
       - name: Generate dummy google-services.json
@@ -86,10 +86,22 @@ jobs:
           EOF
           fi
 
-      - name: Make gradlew executable and run assembleDebug
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Generate missing Gradle wrapper files
+        run: |
+          if [ ! -f ./gradlew ]; then
+            gradle wrapper --gradle-version 9.3.1
+          fi
+          chmod +x ./gradlew
+
+      - name: Build Debug APK
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8"
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
